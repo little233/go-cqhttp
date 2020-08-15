@@ -24,11 +24,13 @@ go-cqhttp 支持导入CQHTTP的配置文件, 具体步骤为:
 	"access_token": "",
 	"relogin": false,
 	"relogin_delay": 0,
+	"post_message_format": "string",
 	"http_config": {
 		"enabled": true,
 		"host": "0.0.0.0",
 		"port": 5700,
-		"post_urls": {"url:port": "secret"}
+        "timeout": 5,
+		"post_urls": {"url:port": "secret"},
 	},
 	"ws_config": {
 		"enabled": true,

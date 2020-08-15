@@ -37,13 +37,18 @@ func init() {
 		log.SetOutput(io.MultiWriter(os.Stderr, w))
 	}
 	if !global.PathExists(global.IMAGE_PATH) {
-		if err := os.MkdirAll(global.IMAGE_PATH, 0677); err != nil {
+		if err := os.MkdirAll(global.IMAGE_PATH, 0755); err != nil {
 			log.Fatalf("创建图片缓存文件夹失败: %v", err)
 		}
 	}
 	if !global.PathExists(global.VOICE_PATH) {
-		if err := os.MkdirAll(global.VOICE_PATH, 06777); err != nil {
+		if err := os.MkdirAll(global.VOICE_PATH, 0755); err != nil {
 			log.Fatalf("创建语音缓存文件夹失败: %v", err)
+		}
+	}
+	if !global.PathExists(global.VIDEO_PATH) {
+		if err := os.MkdirAll(global.VIDEO_PATH, 0755); err != nil {
+			log.Fatalf("创建视频缓存文件夹失败: %v", err)
 		}
 	}
 	if global.PathExists("cqhttp.json") {
@@ -101,7 +106,8 @@ func main() {
 				Host:    "0.0.0.0",
 				Port:    6700,
 			},
-			Debug: os.Getenv("DEBUG") == "true",
+			PostMessageFormat: "string",
+			Debug:             os.Getenv("DEBUG") == "true",
 		}
 		if post != "" {
 			conf.HttpConfig.PostUrls[post] = os.Getenv("HTTP_SECRET")
@@ -129,7 +135,7 @@ func main() {
 	if !global.PathExists("device.json") {
 		log.Warn("虚拟设备信息不存在, 将自动生成随机设备.")
 		client.GenRandomDevice()
-		_ = ioutil.WriteFile("device.json", client.SystemDeviceInfo.ToJson(), 0777)
+		_ = ioutil.WriteFile("device.json", client.SystemDeviceInfo.ToJson(), 0644)
 		log.Info("已生成设备信息并保存到 device.json 文件.")
 	} else {
 		log.Info("将使用 device.json 内的设备信息运行Bot.")
@@ -165,9 +171,10 @@ func main() {
 		if !rsp.Success {
 			switch rsp.Error {
 			case client.NeedCaptcha:
+				_ = ioutil.WriteFile("captcha.jpg", rsp.CaptchaImage, 0644)
 				img, _, _ := image.Decode(bytes.NewReader(rsp.CaptchaImage))
 				fmt.Println(asciiart.New("image", img).Art)
-				log.Warn("请输入验证码： (Enter 提交)")
+				log.Warn("请输入验证码 (captcha.jpg)： (Enter 提交)")
 				text, _ := console.ReadString('\n')
 				rsp, err = cli.SubmitCaptcha(strings.ReplaceAll(text, "\n", ""), rsp.CaptchaSign)
 				continue
@@ -191,10 +198,16 @@ func main() {
 	global.Check(cli.ReloadGroupList())
 	log.Infof("共加载 %v 个群.", len(cli.GroupList))
 	b := coolq.NewQQBot(cli, conf)
+	if conf.PostMessageFormat != "string" && conf.PostMessageFormat != "array" {
+		log.Warnf("post_message_format 配置错误, 将自动使用 string")
+		coolq.SetMessageFormat("string")
+	} else {
+		coolq.SetMessageFormat(conf.PostMessageFormat)
+	}
 	if conf.HttpConfig != nil && conf.HttpConfig.Enabled {
 		server.HttpServer.Run(fmt.Sprintf("%s:%d", conf.HttpConfig.Host, conf.HttpConfig.Port), conf.AccessToken, b)
 		for k, v := range conf.HttpConfig.PostUrls {
-			server.NewHttpClient().Run(k, v, b)
+			server.NewHttpClient().Run(k, v, conf.HttpConfig.Timeout, b)
 		}
 	}
 	if conf.WSConfig != nil && conf.WSConfig.Enabled {

@@ -439,14 +439,14 @@ func (bot *CQBot) CQGetForwardMessage(resId string) MSG {
 	}
 	var r []MSG
 	for _, n := range m.Nodes {
-		checkMedia(n.Message)
+		bot.checkMedia(n.Message)
 		r = append(r, MSG{
 			"sender": MSG{
 				"user_id":  n.SenderId,
 				"nickname": n.SenderName,
 			},
 			"time":    n.Time,
-			"content": ToStringMessage(n.Message, 0, false),
+			"content": ToFormattedMessage(n.Message, 0, false),
 		})
 	}
 	return OK(MSG{
